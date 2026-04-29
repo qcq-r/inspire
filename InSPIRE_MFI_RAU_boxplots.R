@@ -41,47 +41,52 @@ boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
       !is.na(group)
     )
   
-  # --- Dynamic y limits ---
+  # y-axis limits
   yvals <- data[[var_name]]
   ymin <- 10^floor(log10(min(yvals)))
   ymax <- 10^ceiling(log10(max(yvals)))
   
+  # Toggle x-axis title label
   x_label <- if (show_x) "Group" else NULL
   
+  # Adjust y-axis label for FcR plots
+  y_label <- if (grepl("FcgR", assay)) {
+    receptor <- sub("FcgR", "", assay)
+    
+    paste0(antigen, " Fc\u03B3R", receptor, " (", measure, ")")
+  } else {
+    paste0(antigen, " ", assay, " (", measure, ")")
+  }
+  
+  # Boxplot
   p <- ggplot(
     data,
-    aes(
-      x = group,
-      y = .data[[var_name]],
-      fill = group
-    )
-  ) +
-    labs(
-      x = x_label,
-      y = paste0(antigen, " ", assay, " (", measure, ")")
-    ) +
+    aes(x = group,
+       y = .data[[var_name]],
+       fill = group)) +
+    labs(x = x_label, 
+         y = y_label) +
     theme_bw() +
     theme(
       legend.position = "none",
       panel.grid.major = element_line(color = "grey90", linewidth = 0.5),
       panel.grid.minor = element_line(color = "grey92"),
       axis.line = element_line(color = "black", linewidth = 0.8),
+      axis.title.y = element_text(face = "bold"),
       axis.text = element_text(size = 9.5),
       axis.ticks = element_line(linewidth = 0.8, color = "black"),
-      plot.margin = margin(5,5,5,5)
-    ) +
+      plot.margin = margin(5,5,5,5)) +
     scale_fill_manual(values = c(
       "G1" = "yellowgreen",
       "G2" = "darkcyan",
-      "G3" = "firebrick2"
-    )) +
+      "G3" = "firebrick2")) +
     scale_y_log10(
       limits = c(ymin, ymax),
-      breaks = scales::log_breaks(base = 10),
-      labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
+      breaks = 10^(floor(log10(min(yvals))):ceiling(log10(max(yvals)))),
+      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
     annotation_logticks(sides = "l")
   
+  # Toggle individual data points
   if (show_points) {
     
     p <- p +
