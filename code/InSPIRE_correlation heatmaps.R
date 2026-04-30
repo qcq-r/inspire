@@ -20,7 +20,6 @@ data_FcgRI <- transform(read.csv("data/InSPIRE_FcgRI_grouped.csv"), assay = "Fcg
 data_FcgRII <- transform(read.csv("data/InSPIRE_FcgRII_grouped.csv"), assay = "FcgRII")
 data_FcgRIII <- transform(read.csv("data/InSPIRE_FcgRIII_grouped.csv"), assay = "FcgRIII")
 
-
 # Combine antibody data for each antigen ----------------------------------
 data_collated <- list(IgG   = data_IgG,
                       IgG1  = data_IgG1,
@@ -65,7 +64,7 @@ clean_df <- function(df, prefix) {
     }
 }
 
-# 
+# Filtered datasets
 df_Pv41 <- clean_df(data_collated, "Pv41")
 df_Pv50 <- clean_df(data_collated, "Pv50")
 df_Pv12 <- clean_df(data_collated, "Pv12")
@@ -166,11 +165,11 @@ plot_corr_heatmap <- function(df, method = "spearman", show_sig = TRUE) {
 }
 
 # Purpose: To manually adjust y-axis position of significance asterisks.
-# Instructions: Run trace(corrplot, edit=TRUE) once at the start of the session as below. To plot correctly call plot_corr() again.
+# Instructions: Run trace(corrplot, edit=TRUE) once at the start of the session as below. To plot correctly call plot_corr_heatmap() again.
 trace(corrplot, edit=TRUE) # @Line 446 copy& paste: text(pos.pNew[, 1][sig.locs], pos.pNew[, 2][sig.locs]-0.3
 
 # List of correlation heatmaps -------------------------------------------------------
-## Export > Save Image > PNG; Width 609, Height 565; Use device pixel ratio
+## Export > Save Image > PNG; Width 609 px, Height 565 px; Use device pixel ratio
 plot_corr_heatmap(df_Pv41)
 plot_corr_heatmap(df_Pv50)
 plot_corr_heatmap(df_Pv12)
