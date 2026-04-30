@@ -5,6 +5,7 @@
 setwd("~/Downloads/data/inspire/R")
 
 # Load required packages --------------------------------------------------
+library(ggplot2)
 library(corrplot)
 library(dplyr)
 library(purrr)
@@ -73,7 +74,6 @@ df_Pv32 <- clean_df(data_collated, "Pv32")
 df_PvRBP2p1 <- clean_df(data_collated, "PvRBP2p1")
 
 # Plot Spearman's correlation heatmap ---------------------------------
-
 plot_corr_heatmap <- function(df, method = "spearman", show_sig = TRUE) {
   
   ## prep matrix
@@ -170,6 +170,7 @@ plot_corr_heatmap <- function(df, method = "spearman", show_sig = TRUE) {
 trace(corrplot, edit=TRUE) # @Line 446 copy& paste: text(pos.pNew[, 1][sig.locs], pos.pNew[, 2][sig.locs]-0.3
 
 # List of correlation heatmaps -------------------------------------------------------
+## Export > Save Image > PNG; Width 609, Height 565; Use device pixel ratio
 plot_corr_heatmap(df_Pv41)
 plot_corr_heatmap(df_Pv50)
 plot_corr_heatmap(df_Pv12)
