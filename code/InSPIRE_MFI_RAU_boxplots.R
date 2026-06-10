@@ -16,6 +16,15 @@ data_FcgRI <- transform(read.csv("data/InSPIRE_FcgRI_grouped.csv"), assay = "Fcg
 data_FcgRII <- transform(read.csv("data/InSPIRE_FcgRII_grouped.csv"), assay = "FcgRII")
 data_FcgRIII <- transform(read.csv("data/InSPIRE_FcgRIII_grouped.csv"), assay = "FcgRIII")
 
+## Debug datasets: tertiling performed via Stata using XOA IDs as input only (Pk standards, VBDR negative samples removed)
+data_IgG  <- transform(read.csv("data/testing/InSPIRE_IgG_grouped_xoa.csv"),  assay = "IgG")
+data_IgG1 <- transform(read.csv("data/testing/InSPIRE_IgG1_grouped_xoa.csv"), assay = "IgG1")
+data_IgG3 <- transform(read.csv("data/testing/InSPIRE_IgG3_grouped_xoa.csv"), assay = "IgG3")
+data_C1q <- transform(read.csv("data/testing/InSPIRE_C1q_grouped_xoa.csv"), assay = "C1q")
+data_FcgRI <- transform(read.csv("data/testing/InSPIRE_FcgRI_grouped_xoa.csv"), assay = "FcgRI")
+data_FcgRII <- transform(read.csv("data/testing/InSPIRE_FcgRII_grouped_xoa.csv"), assay = "FcgRII")
+data_FcgRIII <- transform(read.csv("data/testing/InSPIRE_FcgRIII_grouped_xoa.csv"), assay = "FcgRIII")
+
 # Boxplot function --------------------------------------------------------
 boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
   

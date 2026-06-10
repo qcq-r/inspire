@@ -1,6 +1,7 @@
 This GitHub repository is to store my re-analysis in R of Takaaki Yuguchi's InSPIRE work.
 
 Methods:
+
 Samples: Plasma from R03 cohort (Ivo Mueller, PLOS One, 2011) of 186 PNG children
 IgG, IgG1, IgG3, C1q, FcgRI, FcgRII, FcgRIII: Multiplex immunoassay (MAGPIX)
 Grouping: Antibody responses classified into 3 groups (G1, G2, G3) in ascending magnitude of response 
