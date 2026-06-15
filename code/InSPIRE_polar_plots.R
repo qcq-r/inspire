@@ -8,6 +8,7 @@ setwd("~/Downloads/data/inspire/R")
 library(ggplot2)
 library(tidyverse)
 library(datawizard)
+library(Cairo)
 
 # Import data (.csv) ------------------------------------------------------
 data_IgG  <- transform(read.csv("data/InSPIRE_IgG_grouped.csv"),  assay = "IgG")
@@ -131,32 +132,104 @@ Pv32_norm_med <- norm_med(df_Pv32_norm)
 PvRBP2p1_norm_med <- norm_med(df_PvRBP2p1_norm)
 PvEXP1_norm_med <- norm_med(df_PvEXP1_norm)
 
-# Polar plots -------------------------------------------------------------
-polar_plot <- function(data) {
+# Polar plots -----------------------------------------------------
+polar_plot <- function(data, group = NULL) {
   antigen <- sub("_norm_med$", "", deparse(substitute(data)))
-  data$Feature <- gsub("FcgRI",  "Fc\u03B3RI",  data$Feature)
-  data$Feature <- gsub("FcgRII", "Fc\u03B3RII", data$Feature)
-  data$Feature <- gsub("FcgRIII","Fc\u03B3RIII",data$Feature)
   
+  # Calculate median for specified group
+  if (!is.null(group)) {
+    df_orig <- get(paste0("df_", antigen))
+    df_norm <- get(paste0("df_", antigen, "_norm"))
+    
+    # Dynamically identify which features are actually present
+    all_possible_features <- c("IgG", "IgG1", "IgG3", "C1q",
+                               "FcgRI", "FcgRII", "FcgRIII")
+    features <- intersect(all_possible_features, names(df_norm))
+    
+    # Filter the matching group columns safely
+    group_cols <- paste0(features, "_Group")
+    df_group_cols <- df_orig[, c("ID", group_cols), drop = FALSE]
+    df_merged <- merge(df_norm, df_group_cols, by = "ID")
+    
+    # Calculate median for specified group
+    updated_medians <- sapply(features, function(f) {
+      group_col <- paste0(f, "_Group")
+      vals <- df_merged[[f]][df_merged[[group_col]] %in% group]
+      median(vals, na.rm = TRUE)
+    })
+    
+    # Restructure into data frame expected by ggplot
+    data <- data.frame(
+      Feature = names(updated_medians),
+      Y = as.numeric(updated_medians),
+      stringsAsFactors = FALSE
+    )
+    
+    # Set custom titles
+    if (group == 1) {
+      plot_title <- paste0(antigen, " (Low responders)")
+    } else if (group == 3) {
+      plot_title <- paste0(antigen, " (High responders)")
+    } else {
+      plot_title <- paste(antigen, "- Group", group)
+    }
+    
+  } else {
+    plot_title <- antigen
+  }
+  
+  # FcgR renaming
+  data$Feature <- gsub("FcgRI",  "FcγRI",  data$Feature)
+  data$Feature <- gsub("FcgRII", "FcγRII", data$Feature)
+  data$Feature <- gsub("FcgRIII","FcγRIII",data$Feature)
+  
+  # Fixed colour assignments by feature
+  coloured_features <- c(
+    IgG       = "#4E79A7",  
+    IgG1      = "#F28E2B",  
+    IgG3      = "#E15759",  
+    C1q       = "#76B7B2",  
+    "FcγRI"   = "#59A14F",  
+    "FcγRII"  = "#EDC948",  
+    "FcγRIII" = "#B07AA1"   
+  )
+  
+  # Plot
   polarplot <- ggplot(data, aes(Feature, Y)) +
-    geom_col(aes(fill = Feature), position = position_dodge(width = 1), width = 1)
-  polarplot + coord_polar() +
-    ylim(0, 1) +
-    ggtitle(antigen) +
-    theme_bw() +
-    theme(axis.text.x = element_text(size=13, face="bold"),
-          axis.text.y = element_blank(),
-          axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.ticks.y = element_blank(),
-          axis.line = element_line(size = 0),
-          legend.position = "none",
-          plot.title = element_text(size = 20, face = "bold", hjust = 0.5)) +
-    annotate('text', x = 3, y = c(0.25,0.5, 0.75, 1.0), label = c('0.25', '0.5', '0.75', '1.0'), size = 4)
+    geom_col(
+      aes(fill = Feature),
+      position = position_dodge(width = 1),
+      width = 1
+    ) +
+    scale_fill_manual(values = coloured_features)
   
+  polarplot +
+    coord_polar() + 
+    ylim(0, 1) +
+    ggtitle(plot_title) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(size = 4, face = "bold"),
+      axis.text.y = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.line = element_blank(),
+      legend.position = "none",
+      plot.title = element_text(size = 7, face = "bold", hjust = 0.5),
+      panel.border = element_blank()
+    ) +
+    annotate(
+      "text",
+      x = 3,
+      y = c(0.25, 0.5, 0.75, 1.0),
+      label = c("0.25", "0.5", "0.75", "1.0"),
+      size = 1.25
+    )
 }
 
-# Export > width 581 height 590, use device pixel ratio
+# No grouping -------------------------------------------------------------
+## Export > width 581 height 590, use device pixel ratio
 polar_plot(Pv41_norm_med)
 polar_plot(Pv50_norm_med)
 polar_plot(Pv12_norm_med)
@@ -164,3 +237,129 @@ polar_plot(PvMSP10_norm_med)
 polar_plot(Pv32_norm_med)
 polar_plot(PvRBP2p1_norm_med)
 polar_plot(PvEXP1_norm_med)
+
+# By group ----------------------------------------------------------------
+## Pv41
+polar_plot(Pv41_norm_med, group = 1)
+polar_plot(Pv41_norm_med, group = 3)
+ggsave("plots/polar/grouped/Pv41_polar_low.png",
+       plot = polar_plot(Pv41_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/Pv41_polar_high.png",
+       plot = polar_plot(Pv41_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+## Pv50
+polar_plot(Pv50_norm_med, group = 1)
+polar_plot(Pv50_norm_med, group = 3)
+ggsave("plots/polar/grouped/Pv50_polar_low.png",
+       plot = polar_plot(Pv50_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/Pv50_polar_high.png",
+       plot = polar_plot(Pv50_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+
+## Pv12
+polar_plot(Pv12_norm_med, group = 1)
+polar_plot(Pv12_norm_med, group = 3)
+ggsave("plots/polar/grouped/Pv12_polar_low.png",
+       plot = polar_plot(Pv12_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/Pv12_polar_high.png",
+       plot = polar_plot(Pv12_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+
+## PvMSP10
+polar_plot(PvMSP10_norm_med, group = 1)
+polar_plot(PvMSP10_norm_med, group = 3)
+ggsave("plots/polar/grouped/PvMSP10_polar_low.png",
+       plot = polar_plot(PvMSP10_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/Pv50_polar_high.png",
+       plot = polar_plot(PvMSP10_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+
+## Pv32 - FcgRI removed
+polar_plot(Pv32_norm_med, group = 1)
+polar_plot(Pv32_norm_med, group = 3)
+ggsave("plots/polar/grouped/Pv32_polar_low.png",
+       plot = polar_plot(Pv32_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/Pv32_polar_high.png",
+       plot = polar_plot(Pv32_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+
+## PvRBP2p1
+polar_plot(PvRBP2p1_norm_med, group = 1)
+polar_plot(PvRBP2p1_norm_med, group = 3)
+ggsave("plots/polar/grouped/PvRBP2p1_polar_low.png",
+       plot = polar_plot(PvRBP2p1_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/PvRBP2p1_polar_high.png",
+       plot = polar_plot(PvRBP2p1_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+
+# PvEXP1
+polar_plot(PvEXP1_norm_med, group = 1)
+polar_plot(PvEXP1_norm_med, group = 3)
+ggsave("plots/polar/grouped/PvEXP1_polar_low.png",
+       plot = polar_plot(PvEXP1_norm_med, group = 1),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
+ggsave("plots/polar/grouped/PvEXP1_polar_high.png",
+       plot = polar_plot(PvEXP1_norm_med, group = 3),
+       width = 1200,
+       height = 1200,
+       units = "px",
+       dpi = 600,
+       bg = "white")
