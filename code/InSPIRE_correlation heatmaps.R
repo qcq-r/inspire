@@ -12,13 +12,13 @@ library(purrr)
 library(tidyr)
 
 # Import data (.csv) ------------------------------------------------------
-data_IgG  <- transform(read.csv("data/InSPIRE_IgG_grouped.csv"),  assay = "IgG")
-data_IgG1 <- transform(read.csv("data/InSPIRE_IgG1_grouped.csv"), assay = "IgG1")
-data_IgG3 <- transform(read.csv("data/InSPIRE_IgG3_grouped.csv"), assay = "IgG3")
-data_C1q <- transform(read.csv("data/InSPIRE_C1q_grouped.csv"), assay = "C1q")
-data_FcgRI <- transform(read.csv("data/InSPIRE_FcgRI_grouped.csv"), assay = "FcgRI")
-data_FcgRII <- transform(read.csv("data/InSPIRE_FcgRII_grouped.csv"), assay = "FcgRII")
-data_FcgRIII <- transform(read.csv("data/InSPIRE_FcgRIII_grouped.csv"), assay = "FcgRIII")
+data_IgG  <- transform(read.csv("data/stata/InSPIRE_IgG_grouped.csv"),  assay = "IgG")
+data_IgG1 <- transform(read.csv("data/stata/InSPIRE_IgG1_grouped.csv"), assay = "IgG1")
+data_IgG3 <- transform(read.csv("data/stata/InSPIRE_IgG3_grouped.csv"), assay = "IgG3")
+data_C1q <- transform(read.csv("data/stata/InSPIRE_C1q_grouped.csv"), assay = "C1q")
+data_FcgRI <- transform(read.csv("data/stata/InSPIRE_FcgRI_grouped.csv"), assay = "FcgRI")
+data_FcgRII <- transform(read.csv("data/stata/InSPIRE_FcgRII_grouped.csv"), assay = "FcgRII")
+data_FcgRIII <- transform(read.csv("data/stata/InSPIRE_FcgRIII_grouped.csv"), assay = "FcgRIII")
 
 # Combine antibody data for each antigen ----------------------------------
 data_collated <- list(IgG   = data_IgG,
@@ -71,6 +71,7 @@ df_Pv12 <- clean_df(data_collated, "Pv12")
 df_PvMSP10 <- clean_df(data_collated, "PvMSP10")
 df_Pv32 <- clean_df(data_collated, "Pv32")
 df_PvRBP2p1 <- clean_df(data_collated, "PvRBP2p1")
+df_PvEXP1 <- clean_df(data_collated, "PvEXP1")
 
 # Plot Spearman's correlation heatmap ---------------------------------
 plot_corr_heatmap <- function(df, method = "spearman", show_sig = TRUE) {
@@ -176,5 +177,130 @@ plot_corr_heatmap(df_Pv12)
 plot_corr_heatmap(df_PvMSP10)
 plot_corr_heatmap(df_Pv32)
 plot_corr_heatmap(df_PvRBP2p1)
+plot_corr_heatmap(df_PvEXP1)
+
+# Heatmap by antibody feature ---------------------------------------------
+plot_corr_heatmap_feature <- function(df, feature = "IgG",
+                                      method = "spearman",
+                                      show_sig = TRUE) {
+  
+  ## select columns for chosen feature
+  suffix <- switch(
+    feature,
+    "IgG"     = "_RAU_IgG$",
+    "IgG1"    = "_RAU_IgG1$",
+    "IgG3"    = "_MFI_IgG3$",
+    "C1q"     = "_MFI_C1q$",
+    "FcgRI"   = "_MFI_FcgRI$",
+    "FcgRII"  = "_MFI_FcgRII$",
+    "FcgRIII" = "_MFI_FcgRIII$"
+  )
+  
+  df_clean <- df %>%
+    select(ID, matches(suffix))
+  
+  ## rename columns to antigen names
+  antigen_names <- names(df_clean)[-1]
+  
+  antigen_names <- antigen_names |>
+    sub("_RAU_IgG$", "", x = _) |>
+    sub("_RAU_IgG1$", "", x = _) |>
+    sub("_MFI_IgG3$", "", x = _) |>
+    sub("_MFI_C1q$", "", x = _) |>
+    sub("_MFI_FcgRI$", "", x = _) |>
+    sub("_MFI_FcgRII$", "", x = _) |>
+    sub("_MFI_FcgRIII$", "", x = _)
+  
+  names(df_clean)[-1] <- antigen_names
+  
+  mat <- as.matrix(select(df_clean, -ID))
+  
+  ## remove zero variance antigens
+  sds <- apply(mat, 2, sd, na.rm = TRUE)
+  
+  mat <- mat[, sds > 0 & !is.na(sds), drop = FALSE]
+  
+  ## calculate correlation matrix
+  cor_mat <- cor(mat, use = "pairwise.complete.obs", method = method)
+  
+  ## calculate p-value matrix
+  n <- ncol(mat)
+  
+  p_mat <- matrix(NA, n, n)
+  colnames(p_mat) <- colnames(mat)
+  rownames(p_mat) <- colnames(mat)
+  
+  for (i in seq_len(n)) {
+    for (j in i:n) {
+      
+      x <- mat[, i]
+      y <- mat[, j]
+      
+      if (sd(x, na.rm=TRUE)==0 || sd(y, na.rm=TRUE)==0) next
+      
+      pval <- suppressWarnings(cor.test(x, y, method=method)$p.value)
+      
+      p_mat[i, j] <- pval
+      p_mat[j, i] <- pval
+    }
+  }
+  
+  ## remove diagonals
+  diag(cor_mat) <- NA
+  
+  ## colour scale (r=-1 to r=1)
+  col_fun <- colorRampPalette(c("#053061", "#2166AC", "#4393C3", "#92C5DE","#F7F7F7","#FDDBC7", "#F4A582", "#D6604D", "#B2182B", "#67001F"))(200)
+  
+  ## correlation heatmap
+  corrplot::corrplot(
+    cor_mat,
+    method = "color",
+    col = col_fun,
+    type = "lower",
+    diag = FALSE,
+    
+    # Ab feature labels
+    font = 2,
+    tl.srt = 45,
+    tl.col = "black",
+    tl.cex = 0.8,
+    tl.offset = 0.5,
+    
+    # show coefficients
+    addCoef.col = "black",
+    
+    # significance
+    p.mat = if (show_sig) p_mat else NULL,
+    sig.level = c(0.001, 0.01, 0.05),
+    insig = "label_sig",
+    pch.cex = 1.5,
+    pch.col = "black"
+  )
+  
+  ## colour legend title
+  mtext("Spearman's correlation coefficient (r)", 
+        side = 1, line = 3.5, cex = 0.9)
+  
+  ## plot title
+  ## feature title
+  feature_title <- feature
+  
+  feature_title <- gsub("FcgRIII", "Fc\u03B3RIII", feature_title)
+  feature_title <- gsub("FcgRII",  "Fc\u03B3RII",  feature_title)
+  feature_title <- gsub("FcgRI",   "Fc\u03B3RI",   feature_title)
+  
+  title(
+    main = bquote(bold(.(feature_title))),
+    line = 1
+  )
+}
+
+plot_corr_heatmap_feature(data_collated, "IgG")
+plot_corr_heatmap_feature(data_collated, "IgG1")
+plot_corr_heatmap_feature(data_collated, "IgG3")
+plot_corr_heatmap_feature(data_collated, "C1q")
+plot_corr_heatmap_feature(data_collated, "FcgRI")
+plot_corr_heatmap_feature(data_collated, "FcgRII")
+plot_corr_heatmap_feature(data_collated, "FcgRIII")
 
 save.image(file = "inspire.RData")

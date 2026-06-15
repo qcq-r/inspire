@@ -146,9 +146,9 @@ library(patchwork)
 
 # Define antigen groups for plotting
 antigens_RAU <- c("Pv12_RAU", "Pv32_RAU", "Pv41_RAU", "Pv50_RAU", 
-              "PvEXP1_RAU", "PvMSP10_RAU", "PvRBP2p1_RAU")
+                  "PvMSP10_RAU", "PvRBP2p1_RAU", "PvEXP1_RAU")
 antigens_MFI <- c("Pv12_MFI", "Pv32_MFI", "Pv41_MFI", "Pv50_MFI", 
-                  "PvEXP1_MFI", "PvMSP10_MFI", "PvRBP2p1_MFI")
+                  "PvMSP10_MFI", "PvRBP2p1_MFI", "PvEXP1_MFI")
 
 # RAU
 IgG_plots <- lapply(antigens_RAU, function(x) boxplot_grouped(data_IgG, x, show_points = FALSE, show_x = FALSE))
