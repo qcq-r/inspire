@@ -8,7 +8,6 @@ setwd("~/Downloads/data/inspire/R")
 library(ggplot2)
 library(tidyverse)
 library(datawizard)
-library(Cairo)
 
 # Import data (.csv) ------------------------------------------------------
 data_IgG  <- transform(read.csv("data/InSPIRE_IgG_grouped.csv"),  assay = "IgG")
