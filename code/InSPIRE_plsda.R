@@ -70,3 +70,14 @@ perf_plsda <- perf(plsda_res, validation = "Mfold", folds = 10, nrepeat = 10)
 
 # View classification error rates
 print(perf_plsda$error.rate)
+
+#> print(perf_plsda$error.rate)
+#$overall
+#max.dist centroids.dist mahalanobis.dist
+#comp1 0.3967568      0.4324324        0.4324324
+#comp2 0.3924324      0.4362162        0.4681081
+
+#$BER
+#max.dist centroids.dist mahalanobis.dist
+#comp1 0.4965938      0.4487368        0.4487368
+#comp2 0.4814731      0.4581951        0.4843326
