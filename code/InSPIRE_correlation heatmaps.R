@@ -397,6 +397,10 @@ plot_rectangular_corrplot <- function(df, target_feature = "IgG", method = "spea
   rownames(sub_cor_mat) <- clean_row_names(rownames(sub_cor_mat))
   rownames(sub_p_mat)   <- clean_row_names(rownames(sub_p_mat))
   
+  ## Format column labels
+  colnames(sub_cor_mat) <- paste(colnames(sub_cor_mat), target_feature)
+  colnames(sub_p_mat)   <- paste(colnames(sub_p_mat), target_feature)
+  
   ## 8. Theme Palette
   col_fun <- colorRampPalette(c("#053061", "#2166AC", "#4393C3", "#92C5DE","#F7F7F7","#FDDBC7", "#F4A582", "#D6604D", "#B2182B", "#67001F"))(200)
   
@@ -406,36 +410,60 @@ plot_rectangular_corrplot <- function(df, target_feature = "IgG", method = "spea
     method = "color",
     col = col_fun,
     cl.pos = "b",
-    type = "full",       # Crucial configuration for asymmetrical rectangular dimensions
+    type = "full",       
     
-    # Text formatting configurations
-    tl.srt = 45,         # 45 degrees handles longer structural antigen names cleanly
+    # Text formatting
+    tl.srt = 45,         
     tl.col = "black",
-    tl.cex = 0.8,
+    tl.cex = 0.5,
     tl.offset = 0.5,
+    cl.ratio = 0.21,
+    cl.cex = 0.4,
     
-    # Value coefficients inside grid blocks
+    # Correlation coefficient
     addCoef.col = "black",
     number.digits = 2,
-    number.cex = 0.7,
+    number.cex = 0.5,
     
-    # Statistical significance mappings
-    p.mat = if (show_sig) sub_p_mat else NULL,
+    # Statistical significance
+    p.mat = if (show_sig) sub_p_mat else NA,
     sig.level = c(0.001, 0.01, 0.05),
     insig = "label_sig",
-    pch.cex = 1.2,
-    pch.col = "black"
+    pch.cex = 0.8,
+    pch.col = "black",
+    na.label = "NA",
+    na.label.col = "black"
   )
   
   ## Context labels
-  mtext("Spearman's correlation coefficient (r)", side = 1, line = 4, cex = 0.9)
-  
-  feature_title <- gsub("FcgR", "Fc\u03B3R", target_feature)
-  title(main = bquote(bold("Antigen-specific" ~ .(feature_title))), line = 3)
+  mtext("Spearman's correlation coefficient (r)", side = 1, line = 4.1, cex = 0.4)
+
 }
 
 plot_rectangular_corrplot(data_collated, target_feature = "IgG")
 plot_rectangular_corrplot(data_collated, target_feature = "IgG1")
 plot_rectangular_corrplot(data_collated, target_feature = "IgG3")
 
+ggsave("plots/heatmaps/antibody/InSPIRE_IgG_allantigens_rectangular.png",
+       plot = plot_rectangular_corrplot(data_collated, target_feature = "IgG"),
+       width = 1500,
+       height = 900,
+       units = "px",
+       dpi = 300,
+       bg = "white")
 
+ggsave("plots/heatmaps/antibody/InSPIRE_IgG1_allantigens_rectangular.png",
+       plot = plot_rectangular_corrplot(data_collated, target_feature = "IgG1"),
+       width = 1500,
+       height = 900,
+       units = "px",
+       dpi = 300,
+       bg = "white")
+
+ggsave("plots/heatmaps/antibody/InSPIRE_IgG3_allantigens_rectangular.png",
+       plot = plot_rectangular_corrplot(data_collated, target_feature = "IgG3"),
+       width = 1500,
+       height = 900,
+       units = "px",
+       dpi = 300,
+       bg = "white")

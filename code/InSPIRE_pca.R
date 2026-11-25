@@ -121,6 +121,7 @@ feature_selection <- function(norm_data, matrix_Y, tablelabel, iterations = 100)
 # Function: Run PCA ---------------------------------------------------------
 pca_analysis <- function(log_data, top_features, tablelabel, matrix_Y, ellipse = TRUE) {
   set.seed(42)
+  
   # Rename FcgR
   top_features <- gsub("FcgRI", "Fc\u03b3RI", top_features)
   top_features <- gsub("FcgRII", "Fc\u03b3RII", top_features)
@@ -133,141 +134,215 @@ pca_analysis <- function(log_data, top_features, tablelabel, matrix_Y, ellipse =
   idx_final <- match(top_features, tablelabel)
   final_log_data_fs <- log_data[, idx_final, drop = FALSE]
   
-  # Run PCA on scaled data
+  # PCA
   pca_res <- prcomp(scale(final_log_data_fs), scale. = FALSE)
   
-  # Calculate variance
   vars <- pca_res$sdev^2
   explained_var <- (vars / sum(vars)) * 100
   total_variance_2d <- sum(explained_var[1:2])
   cat("Total Variance (PC1+PC2):", round(total_variance_2d, 2), "%\n")
   
-  # Average features for each sample and define groups
+  pca_res$x[,1] <- -pca_res$x[,1]
+  pca_res$rotation[,1] <- -pca_res$rotation[,1]
+  
+  # Groups
   avg_group <- round(rowMeans(matrix_Y))
   unique_classes <- sort(unique(avg_group))
-  legend_labels <- paste0("G", unique_classes)
+  legend_labels <- c("Low responders", "Medium responders", "High responders")
   
-  master_palette <- c("1" = "#DD5129FF", "2" = "#FAB255FF", "3" = "#43B284FF")
+  master_palette <- c("1" = "#3C7BC1", "2" = "#FAB255FF", "3" = "#DD5129FF")
   plot_colors <- master_palette[as.character(avg_group)]
   legend_colors <- master_palette[as.character(unique_classes)]
   
-  # Colour antibody features
+  # Antibody feature colouring
   ab_types <- sub(".*_", "", top_features)
   unique_ab_types <- sort(unique(ab_types))
   
-  ab_palette_pool <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "#F781BF", "#999999")
+  ab_palette_pool <- c("#E41A1C", "#377EB8", "#4DAF4A",
+                       "#984EA3", "#FF7F00", "#A65628",
+                       "#F781BF", "#999999")
+  
   ab_palette <- ab_palette_pool[1:length(unique_ab_types)]
   names(ab_palette) <- unique_ab_types
   feature_colors <- ab_palette[ab_types]
   
-## Plot 1: PCA Plot
-  plot(pca_res$x[,1], pca_res$x[,2], col = plot_colors, pch = 19, cex = 1.5,
+  ## Plot 1
+  old_mar_p1 <- par(mar = c(5, 5, 4, 2) + 0.1)  
+  
+  x_lim <- range(pca_res$x[,1]) * 1.15
+  y_lim <- range(pca_res$x[,2]) * 1.15
+  
+  plot(pca_res$x[,1], pca_res$x[,2],
+       col = plot_colors, pch = 19, cex = 1.5,
+       xlim = x_lim, ylim = y_lim,
        main = "PCA Scores",
        xlab = paste0("PC1 (", round(explained_var[1], 2), "%)"),
        ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"))
   
   abline(h = 0, v = 0, lty = 3, col = "gray50")
   
-  ### Toggle 95% confidence ellipse
   if (ellipse) {
     library(car)
     for (g in unique_classes) {
       idx <- which(avg_group == g)
       if (length(idx) >= 3) {
-        dataEllipse(pca_res$x[idx, 1], pca_res$x[idx, 2], 
-                    levels = 0.95, add = TRUE, plot.points = FALSE, 
-                    col = master_palette[as.character(g)], 
-                    fill = TRUE, fill.alpha = 0.15, 
+        dataEllipse(pca_res$x[idx, 1], pca_res$x[idx, 2],
+                    levels = 0.95, add = TRUE,
+                    plot.points = FALSE,
+                    col = master_palette[as.character(g)],
+                    fill = TRUE, fill.alpha = 0.15,
                     lty = 2, lwd = 1, center.pch = FALSE)
       }
     }
   }
-  legend("topleft", legend = legend_labels, col = legend_colors, pch = 19)
   
-## Plot 2: PCA Loading Plot
-  old_mar_p2 <- par(mar = c(5, 4, 4, 8) + 0.1)
+  legend("topleft",
+         legend = legend_labels,
+         col = legend_colors,
+         pch = 19)
   
-  plot(pca_res$rotation[,1], pca_res$rotation[,2], col = feature_colors, pch = 16, cex = 1.2,
-       main = "PCA Features (Loadings)",
+  par(old_mar_p1)
+  
+  ## Plot 2: PCA Loadings
+  old_mar_p2 <- par(mar = c(5, 4, 4, 5) + 0.1)
+  
+  load_x <- pca_res$rotation[,1]
+  load_y <- pca_res$rotation[,2]
+  
+  x_pad <- 0.06 * diff(range(load_x))
+  y_pad <- 0.10 * diff(range(load_y))
+  
+  x_lim <- c(min(load_x) - x_pad, max(load_x) + x_pad)
+  y_lim <- c(min(load_y) - y_pad, max(load_y) + y_pad)
+  
+  plot(load_x, load_y,
+       col = feature_colors, pch = 16, cex = 1.2,
        xlab = paste0("PC1 (", round(explained_var[1], 2), "%)"),
-       ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"))
+       ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"),
+       xlim = x_lim,
+       ylim = y_lim,
+       xaxt = "n")  
   
   abline(h = 0, v = 0, lty = 3, col = "gray50")
   
-  text(pca_res$rotation[,1], pca_res$rotation[,2], labels = top_features, 
-       pos = 3, col = feature_colors, cex = 0.55)
+  pretty_ticks <- pretty(x_lim)
   
-  legend(x = par("usr")[2] + (par("usr")[2] - par("usr")[1])*0.04, 
-         y = par("usr")[4], 
-         legend = unique_ab_types, col = ab_palette, 
-         pch = 16, bty = "n", cex = 0.8, xpd = TRUE)
+  if (!any(abs(pretty_ticks) < 1e-8)) {
+    pretty_ticks <- sort(c(pretty_ticks, 0))
+  }
+  
+  axis(1, at = pretty_ticks)
+  
+  axis(2)
+  
+  text(load_x, load_y,
+       labels = top_features,
+       pos = 3,
+       col = feature_colors,
+       cex = 0.55,
+       xpd = NA)
+  
+  legend(x = par("usr")[2],
+         y = par("usr")[4],
+         legend = unique_ab_types,
+         col = ab_palette,
+         pch = 16,
+         bty = "n",
+         cex = 0.8,
+         xpd = TRUE)
   
   par(old_mar_p2)
   
-## Plot 3: PCA Biplot
+  ## Plot 3: PCA Biplot
+  old_mar_p3 <- par(mar = c(5, 5, 4, 2) + 0.1)  
+  
   x_lim <- range(pca_res$x[,1]) * 1.1
   y_lim <- range(pca_res$x[,2]) * 1.1
   
-  plot(pca_res$x[,1], pca_res$x[,2], col = plot_colors, pch = 19, cex = 1.2,
-       xlim = x_lim, ylim = y_lim, main = "Overlay Biplot",
+  # Arrow scaling (same logic as before)
+  arrow_scale <- min(
+    max(abs(x_lim)) / max(abs(pca_res$rotation[,1])),
+    max(abs(y_lim)) / max(abs(pca_res$rotation[,2]))
+  ) * 0.7
+  
+  # Arrow endpoints
+  arrow_x <- pca_res$rotation[,1] * arrow_scale
+  arrow_y <- pca_res$rotation[,2] * arrow_scale
+  
+  label_pad_x <- 0.12 * diff(range(arrow_x))
+  label_pad_y <- 0.12 * diff(range(arrow_y))
+  
+  x_lim_expanded <- range(c(pca_res$x[,1], arrow_x)) * 1.15
+  y_lim_expanded <- range(c(pca_res$x[,2], arrow_y)) * 1.15
+  
+  # extra breathing room for labels
+  x_lim_expanded <- x_lim_expanded + c(-label_pad_x, label_pad_x)
+  y_lim_expanded <- y_lim_expanded + c(-label_pad_y, label_pad_y)
+  
+  plot(pca_res$x[,1], pca_res$x[,2],
+       col = plot_colors, pch = 19, cex = 1.2,
+       xlim = x_lim_expanded,
+       ylim = y_lim_expanded,
+       main = "PCA Biplot",
        xlab = paste0("PC1 (", round(explained_var[1], 2), "%)"),
        ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"))
   
   abline(h = 0, v = 0, lty = 3, col = "gray50")
   
-  # Toggle ellipse
+  # Ellipses
   if (ellipse) {
     for (g in unique_classes) {
       idx <- which(avg_group == g)
       if (length(idx) >= 3) {
-        dataEllipse(pca_res$x[idx, 1], pca_res$x[idx, 2], 
-                    levels = 0.95, add = TRUE, plot.points = FALSE, 
-                    col = master_palette[as.character(g)], 
-                    fill = TRUE, fill.alpha = 0.15, 
+        dataEllipse(pca_res$x[idx, 1], pca_res$x[idx, 2],
+                    levels = 0.95, add = TRUE,
+                    plot.points = FALSE,
+                    col = master_palette[as.character(g)],
+                    fill = TRUE, fill.alpha = 0.15,
                     lty = 2, lwd = 1, center.pch = FALSE)
       }
     }
   }
   
-  arrow_scale <- min(max(abs(x_lim)) / max(abs(pca_res$rotation[,1])), 
-                     max(abs(y_lim)) / max(abs(pca_res$rotation[,2]))) * 0.7
+  # Arrows
+  arrows(0, 0,
+         arrow_x,
+         arrow_y,
+         col = adjustcolor(feature_colors, alpha.f = 0.6),
+         length = 0.07, lwd = 1)
   
-  arrows(0, 0, pca_res$rotation[,1] * arrow_scale, pca_res$rotation[,2] * arrow_scale, 
-         col = adjustcolor(feature_colors, alpha.f = 0.6), length = 0.07, lwd = 1)
+  text(arrow_x * 1.08,
+       arrow_y * 1.08,
+       labels = top_features,
+       col = feature_colors,
+       cex = 0.5)
   
-  text(pca_res$rotation[,1] * arrow_scale * 1.1, pca_res$rotation[,2] * arrow_scale * 1.1, 
-       labels = top_features, col = feature_colors, cex = 0.5)
+  par(old_mar_p1)
   
-## Plot 4: Horizontal PC1 loadings barplot
+  ## Plot 4: PC1 loadings barplot
   pc1_loadings <- pca_res$rotation[, 1]
   names(pc1_loadings) <- top_features
   
-  # Sort from highest positive (top of barplot) to lowest negative (bottom of barplot)
-  sorted_indices <- order(pc1_loadings, decreasing = FALSE) 
+  sorted_indices <- order(pc1_loadings, decreasing = TRUE)[1:20]
   sorted_loadings <- pc1_loadings[sorted_indices]
   sorted_colors <- feature_colors[sorted_indices]
   
-  # Dynamically adjust left margin based on your longest feature label name lengths
   max_label_length <- max(nchar(names(sorted_loadings)))
-  left_margin_size <- max(4, max_label_length * 0.45) 
+  left_margin_size <- max(4, max_label_length * 0.45)
   
-  # Expand margins: c(bottom, left, top, right)
   old_mar_p4 <- par(mar = c(5, left_margin_size, 4, 2) + 0.1)
   
-  # Draw the horizontal barplot
-  bp <- barplot(sorted_loadings, 
-                horiz = TRUE, 
-                las = 1,              # Make feature labels read horizontally
-                col = sorted_colors,  # Match colors to antibody types
-                border = NA,          # Remove messy block borders for ~50 bars
-                cex.names = 0.45,     # Tiny text size so 50 labels fit perfectly
-                main = "PC1 Feature Loadings (Contributions)",
-                xlab = "Loading Weight")
+  barplot(sorted_loadings,
+          horiz = TRUE,
+          las = 1,
+          col = sorted_colors,
+          border = NA,
+          cex.names = 0.45,
+          main = "Contribution to PC1",
+          xlab = "Loading Weight")
   
-  # Vertical dotted baseline at 0
   abline(v = 0, lty = 3, col = "gray30", lwd = 1.2)
   
-  # Reset margins
   par(old_mar_p4)
 }
 
@@ -290,3 +365,235 @@ top_features <- feature_selection(datasets$norm, matrix_Y, tablelabel, iteration
 
 # Generate final PCA plots
 pca_analysis(datasets$log, top_features, tablelabel, matrix_Y, ellipse=TRUE)
+
+
+# Diagnostic: PCA plots using IDs -----------------------------------------
+pca_analysis <- function(log_data, top_features, tablelabel, matrix_Y, sample_ids,
+                         ellipse = TRUE, plot_ids = FALSE) {
+  set.seed(42)
+  
+  # Rename FcgR
+  top_features <- gsub("FcgRI", "Fc\u03b3RI", top_features)
+  top_features <- gsub("FcgRII", "Fc\u03b3RII", top_features)
+  top_features <- gsub("FcgRIII", "Fc\u03b3RIII", top_features)
+  tablelabel   <- gsub("FcgRI", "Fc\u03b3RI", tablelabel)
+  tablelabel   <- gsub("FcgRII", "Fc\u03b3RII", tablelabel)
+  tablelabel   <- gsub("FcgRIII", "Fc\u03b3RIII", tablelabel)
+  
+  # Extract top features
+  idx_final <- match(top_features, tablelabel)
+  final_log_data_fs <- log_data[, idx_final, drop = FALSE]
+  
+  # PCA
+  pca_res <- prcomp(scale(final_log_data_fs), scale. = FALSE)
+  
+  # Safety check (IMPORTANT)
+  if (length(sample_ids) != nrow(pca_res$x)) {
+    stop("sample_ids length does not match PCA rows. Check preprocessing order.")
+  }
+  
+  vars <- pca_res$sdev^2
+  explained_var <- (vars / sum(vars)) * 100
+  total_variance_2d <- sum(explained_var[1:2])
+  cat("Total Variance (PC1+PC2):", round(total_variance_2d, 2), "%\n")
+  
+  # Flip PC1 for interpretability
+  pca_res$x[,1] <- -pca_res$x[,1]
+  pca_res$rotation[,1] <- -pca_res$rotation[,1]
+  
+  # Groups
+  avg_group <- round(rowMeans(matrix_Y))
+  unique_classes <- sort(unique(avg_group))
+  legend_labels <- c("Low responders", "Medium responders", "High responders")
+  
+  master_palette <- c("1" = "#43B284FF", "2" = "#FAB255FF", "3" = "#DD5129FF")
+  plot_colors <- master_palette[as.character(avg_group)]
+  legend_colors <- master_palette[as.character(unique_classes)]
+  
+  # Antibody feature colouring
+  ab_types <- sub(".*_", "", top_features)
+  unique_ab_types <- sort(unique(ab_types))
+  
+  ab_palette_pool <- c("#E41A1C", "#377EB8", "#4DAF4A",
+                       "#984EA3", "#FF7F00", "#A65628",
+                       "#F781BF", "#999999")
+  
+  ab_palette <- ab_palette_pool[1:length(unique_ab_types)]
+  names(ab_palette) <- unique_ab_types
+  feature_colors <- ab_palette[ab_types]
+  
+  ## ---------------- Plot 1: PCA Scores ----------------
+  old_mar_p1 <- par(mar = c(5, 5, 4, 2) + 0.1)  
+  
+  x_lim <- range(pca_res$x[,1]) * 1.15
+  y_lim <- range(pca_res$x[,2]) * 1.15
+  
+  plot(pca_res$x[,1], pca_res$x[,2],
+       type = "n",
+       xlim = x_lim, ylim = y_lim,
+       main = "PCA Scores",
+       xlab = paste0("PC1 (", round(explained_var[1], 2), "%)"),
+       ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"))
+  
+  abline(h = 0, v = 0, lty = 3, col = "gray50")
+  
+  if (plot_ids) {
+    text(pca_res$x[,1], pca_res$x[,2],
+         labels = sample_ids,
+         col = plot_colors, cex = 0.7, font = 2)
+  } else {
+    points(pca_res$x[,1], pca_res$x[,2],
+           col = plot_colors, pch = 19, cex = 1.5)
+  }
+  
+  if (ellipse) {
+    for (g in unique_classes) {
+      idx <- which(avg_group == g)
+      if (length(idx) >= 3) {
+        dataEllipse(pca_res$x[idx, 1], pca_res$x[idx, 2],
+                    levels = 0.95, add = TRUE,
+                    plot.points = FALSE,
+                    col = master_palette[as.character(g)],
+                    fill = TRUE, fill.alpha = 0.15,
+                    lty = 2, lwd = 1, center.pch = FALSE)
+      }
+    }
+  }
+  
+  legend("topleft",
+         legend = legend_labels,
+         col = legend_colors,
+         pch = 19)
+  
+  par(old_mar_p1)
+  
+  ## ---------------- Plot 2: Loadings ----------------
+  old_mar_p2 <- par(mar = c(5, 4, 4, 5) + 0.1)
+  
+  load_x <- pca_res$rotation[,1]
+  load_y <- pca_res$rotation[,2]
+  
+  x_lim <- range(load_x) * 1.1
+  y_lim <- range(load_y) * 1.1
+  
+  plot(load_x, load_y,
+       col = feature_colors, pch = 16, cex = 1.2,
+       xlab = paste0("PC1 (", round(explained_var[1], 2), "%)"),
+       ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"),
+       xlim = x_lim, ylim = y_lim)
+  
+  abline(h = 0, v = 0, lty = 3, col = "gray50")
+  
+  text(load_x, load_y,
+       labels = top_features,
+       pos = 3,
+       col = feature_colors,
+       cex = 0.55,
+       xpd = NA)
+  
+  legend(x = par("usr")[2],
+         y = par("usr")[4],
+         legend = unique_ab_types,
+         col = ab_palette,
+         pch = 16,
+         bty = "n",
+         cex = 0.8,
+         xpd = TRUE)
+  
+  par(old_mar_p2)
+  
+  ## ---------------- Plot 3: Biplot ----------------
+  old_mar_p3 <- par(mar = c(5, 5, 4, 2) + 0.1)
+  
+  arrow_scale <- min(
+    max(abs(pca_res$x[,1])) / max(abs(pca_res$rotation[,1])),
+    max(abs(pca_res$x[,2])) / max(abs(pca_res$rotation[,2]))
+  ) * 0.7
+  
+  arrow_x <- pca_res$rotation[,1] * arrow_scale
+  arrow_y <- pca_res$rotation[,2] * arrow_scale
+  
+  x_lim <- range(c(pca_res$x[,1], arrow_x)) * 1.15
+  y_lim <- range(c(pca_res$x[,2], arrow_y)) * 1.15
+  
+  plot(pca_res$x[,1], pca_res$x[,2],
+       type = "n",
+       xlim = x_lim, ylim = y_lim,
+       main = "PCA Biplot",
+       xlab = paste0("PC1 (", round(explained_var[1], 2), "%)"),
+       ylab = paste0("PC2 (", round(explained_var[2], 2), "%)"))
+  
+  abline(h = 0, v = 0, lty = 3, col = "gray50")
+  
+  if (plot_ids) {
+    text(pca_res$x[,1], pca_res$x[,2],
+         labels = sample_ids,
+         col = plot_colors, cex = 0.6, font = 2)
+  } else {
+    points(pca_res$x[,1], pca_res$x[,2],
+           col = plot_colors, pch = 19, cex = 1.2)
+  }
+  
+  if (ellipse) {
+    for (g in unique_classes) {
+      idx <- which(avg_group == g)
+      if (length(idx) >= 3) {
+        dataEllipse(pca_res$x[idx, 1], pca_res$x[idx, 2],
+                    levels = 0.95, add = TRUE,
+                    plot.points = FALSE,
+                    col = master_palette[as.character(g)],
+                    fill = TRUE, fill.alpha = 0.15,
+                    lty = 2, lwd = 1, center.pch = FALSE)
+      }
+    }
+  }
+  
+  arrows(0, 0,
+         arrow_x, arrow_y,
+         col = adjustcolor(feature_colors, alpha.f = 0.6),
+         length = 0.07, lwd = 1)
+  
+  text(arrow_x * 1.08,
+       arrow_y * 1.08,
+       labels = top_features,
+       col = feature_colors,
+       cex = 0.5)
+  
+  par(old_mar_p1)
+  
+  ## ---------------- Plot 4: PC1 barplot ----------------
+  pc1_loadings <- pca_res$rotation[, 1]
+  pc1_contrib <- abs(pc1_loadings)
+  
+  sorted_indices <- order(pc1_contrib, decreasing = TRUE)[1:20]
+  sorted_loadings <- pc1_loadings[sorted_indices]
+  sorted_colors <- feature_colors[sorted_indices]
+  
+  max_label_length <- max(nchar(names(sorted_loadings)))
+  left_margin_size <- max(4, max_label_length * 0.45)
+  
+  old_mar_p4 <- par(mar = c(5, left_margin_size, 4, 2) + 0.1)
+  
+  barplot(sorted_loadings,
+          horiz = TRUE,
+          las = 1,
+          col = sorted_colors,
+          border = NA,
+          cex.names = 0.45,
+          main = "Contribution to PC1",
+          xlab = "Loading Weight")
+  
+  abline(v = 0, lty = 3, col = "gray30", lwd = 1.2)
+  
+  par(old_mar_p4)
+}
+
+pca_analysis(
+  datasets$log,
+  top_features,
+  tablelabel,
+  matrix_Y,
+  data_collated$ID,
+  ellipse = TRUE,
+  plot_ids = TRUE
+)

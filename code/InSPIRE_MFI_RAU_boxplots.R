@@ -6,6 +6,7 @@ setwd("~/Downloads/data/inspire/R")
 
 # Load required packages --------------------------------------------------
 library(ggplot2)
+library(dplyr)
 
 # Import data (.csv) ------------------------------------------------------
 data_IgG  <- transform(read.csv("data/InSPIRE_IgG_grouped.csv"),  assay = "IgG")
@@ -28,37 +29,36 @@ neg_FcgRIII <- transform(read.csv("data/VBDR_FcgRIII_MFI.csv"),  assay = "FcgRII
 # Boxplot function --------------------------------------------------------
 boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
   
-  set.seed(42)
+  set.seed(42) # to keep jitter position the same
   
+  # Clean column names from raw dataset
   antigen <- gsub("_RAU|_MFI", "", var_name)
   assay <- data$assay[1]
   measure <- sub(".*_", "", var_name)
   group_col <- gsub("_RAU|_MFI", "_Group", var_name)
   
-  # Clean + rename groups
-  data <- data |>
+  # Change groups from 1, 2, 3 (numeric) to G1, G2, G3 (factor)
+  data <- data %>%
     dplyr::mutate(
       group = factor(
         .data[[group_col]],
         levels = c(1,2,3),
-        labels = c("G1","G2","G3")
-      )
-    ) |>
+        labels = c("G1","G2","G3"))) %>%
     dplyr::filter(
-      !is.na(.data[[var_name]]),
-      .data[[var_name]] > 0,
-      !is.na(group)
+      !is.na(.data[[var_name]]), # only keep non-NA values
+      .data[[var_name]] > 0, # only keep positive values ie no negative MFI/RAU
+      !is.na(group) # only keep rows with grouping
     )
   
   # y-axis limits
-  yvals <- data[[var_name]]
-  ymin <- 10^floor(log10(min(yvals)))
-  ymax <- 10^ceiling(log10(max(yvals)))
+  yvals <- data[[var_name]] # retrieve column with variable want to plot e.g. Pv41_RAU
+  ymin <- 10^floor(log10(min(yvals))) # round y-axis min down to nearest integer power of 10 based on min value in column
+  ymax <- 10^ceiling(log10(max(yvals))) # round y-axis max up to nearest integer power of 10 based on max value in column
   
   # Toggle x-axis title label
   x_label <- if (show_x) "Group" else NULL
   
-  # Adjust y-axis label for FcR plots
+  # Adjust y-axis label for FcR plots (unicode)
   y_label <- if (grepl("FcgR", assay)) {
     receptor <- sub("FcgR", "", assay)
     
@@ -67,7 +67,7 @@ boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
     paste0(antigen, " ", assay, " (", measure, ")")
   }
   
-  # Boxplot
+  # Base boxplot
   p <- ggplot(
     data,
     aes(x = group,
@@ -85,15 +85,18 @@ boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
       axis.text = element_text(size = 9.5),
       axis.ticks = element_line(linewidth = 0.8, color = "black"),
       plot.margin = margin(5,5,5,5)) +
+    ## box fill
     scale_fill_manual(values = c(
       "G1" = "yellowgreen",
       "G2" = "darkcyan",
       "G3" = "firebrick2")) +
+    
+    ## dynamic log y-scale
     scale_y_log10(
       limits = c(ymin, ymax),
-      breaks = 10^(floor(log10(min(yvals))):ceiling(log10(max(yvals)))),
-      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
-    annotation_logticks(sides = "l")
+      breaks = 10^(floor(log10(min(yvals))):ceiling(log10(max(yvals)))), # space ticks by 10^integers
+      labels = scales::trans_format("log10", scales::math_format(10^.x))) + # show major breaks as 10^x
+    annotation_logticks(sides = "l") # add minor ticks in log scale
   
   # Toggle individual data points
   if (show_points) {
@@ -103,22 +106,20 @@ boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
         width = 0.5,
         staplewidth = 0.4,
         linewidth = 0.7,
-        outlier.shape = NA
-      ) +
+        outlier.shape = NA) +
       geom_jitter(
         aes(colour = group),
         width = 0.15,
         alpha = 0.4,
-        size = 2
-      ) +
+        size = 2) +
+      ## colour of points only - border black
       scale_colour_manual(values = c(
         "G1" = "darkolivegreen",
         "G2" = "deepskyblue4",
-        "G3" = "brown"
-      ))
-    
-  } else {
-    
+        "G3" = "brown"))
+  } 
+  else {
+    # modify base boxplot
     p <- p +
       geom_boxplot(
         aes(colour = group),
@@ -126,6 +127,7 @@ boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
         staplewidth = 0.4,
         linewidth = 0.7
       ) +
+      ## box outline colour
       scale_colour_manual(values = c(
         "G1" = "darkgreen",
         "G2" = "royalblue4",
@@ -137,7 +139,7 @@ boxplot_grouped <- function(data, var_name, show_points = TRUE, show_x = TRUE) {
 }
 
 # Test plots
-boxplot_grouped(data_IgG, "Pv41_RAU", show_points = FALSE)
+boxplot_grouped(data_IgG, "Pv12_RAU", show_points = TRUE)
 boxplot_grouped(data_IgG1, "Pv41_RAU", show_points = FALSE)
 boxplot_grouped(data_FcgRI, "PvEXP1_MFI", show_points = FALSE)
 

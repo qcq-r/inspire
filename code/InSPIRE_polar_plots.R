@@ -301,7 +301,7 @@ ggsave("plots/polar/grouped/PvMSP10_polar_low.png",
        units = "px",
        dpi = 600,
        bg = "white")
-ggsave("plots/polar/grouped/Pv50_polar_high.png",
+ggsave("plots/polar/grouped/PvMSP10_polar_high.png",
        plot = polar_plot(PvMSP10_norm_med, group = 3),
        width = 1200,
        height = 1200,
